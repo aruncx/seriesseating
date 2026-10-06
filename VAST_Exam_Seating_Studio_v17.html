@@ -1,0 +1,1060 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VAST Exam Seating Studio</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --navy:#14243a;--navy2:#1c3150;--blue:#4d7cff;--blue2:#dce7ff;
+  --gold:#f4b740;--ink:#172033;--muted:#667085;--line:#d9e1ec;
+  --bg:#f3f6fa;--card:#fff;--success:#16834a;--danger:#c9362f;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,Segoe UI,Arial,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.topbar{background:linear-gradient(135deg,var(--navy),#294c79);color:#fff;padding:24px 4vw;position:relative;overflow:hidden}
+.topbar:after{content:"";position:absolute;width:340px;height:340px;border-radius:50%;right:-100px;top:-210px;background:#ffffff10}
+.brand{max-width:1500px;margin:auto;display:flex;justify-content:space-between;align-items:center;gap:20px}
+.brand h1{font-size:clamp(21px,2.5vw,32px);margin:0;font-weight:850;letter-spacing:-.4px}
+.brand p{margin:6px 0 0;opacity:.86}
+.brand-badge{background:#ffffff18;border:1px solid #ffffff2e;border-radius:12px;padding:10px 14px;text-align:center;white-space:nowrap}
+.brand-badge b{display:block;font-size:18px}.brand-badge span{font-size:11px;opacity:.8}
+main{max-width:1500px;margin:22px auto;padding:0 18px}
+.step{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;margin-bottom:18px;box-shadow:0 8px 26px #1522380b}
+.step-head{display:flex;align-items:center;gap:12px;margin-bottom:16px}
+.step-no{width:34px;height:34px;border-radius:50%;background:var(--navy);color:#fff;display:grid;place-items:center;font-weight:900}
+.step-head h2{margin:0;font-size:21px}.step-head small{color:var(--muted);font-weight:500}
+.grid2{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+@media(max-width:1050px){.grid2{grid-template-columns:1fr}.grid4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:650px){.grid4{grid-template-columns:1fr}}
+.upload{border:2px dashed #b9c6d8;border-radius:14px;padding:22px;text-align:center;background:#fbfcfe}
+.upload input{margin-top:12px;max-width:100%}
+label{display:block;font-size:12px;font-weight:800;color:#475467;margin:0 0 6px}
+input[type=text],input[type=number],select{width:100%;border:1px solid #b9c5d5;border-radius:10px;background:#fff;color:#172033;padding:11px 12px;min-height:44px}
+input:focus,select:focus{outline:2px solid #a8bcff;outline-offset:1px}
+.pair-grid .room-input select{font-weight:800;min-height:48px;border-width:2px}
+.pair-grid .room-input select.side-left{border-color:#4d7cff;background:#eef4ff;color:#123a73}
+.pair-grid .room-input select.side-right{border-color:#16a36a;background:#ecfbf4;color:#075b38}
+.group-choice{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:5px;font-size:10px;font-weight:800}
+.group-pill{display:inline-flex;align-items:center;padding:4px 8px;border-radius:999px;font-size:10px;font-weight:900}
+.group-pill.left{background:#dce7ff;color:#123a73}.group-pill.right{background:#d8f5e7;color:#075b38}.group-pill.none{background:#eef1f5;color:#667085}
+.btn{border:0;border-radius:10px;padding:11px 15px;font-weight:800}
+.btn-primary{background:var(--navy);color:#fff}.btn-blue{background:var(--blue);color:#fff}.btn-soft{background:#edf2f8;color:var(--navy)}.btn-gold{background:#fff2d3;color:#8a5b00}.btn-danger{background:#ffe4e1;color:#b42318}
+.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+.status{border-radius:11px;padding:10px 12px;background:#f2f4f7;color:#475467;font-size:13px;line-height:1.45}
+.status.ok{background:#eaf8f0;color:#126b3e}.status.warn{background:#fff6df;color:#875900}.status.err{background:#ffebe9;color:#a62c26}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:15px}
+.stat{background:#f6f8fb;border:1px solid var(--line);border-radius:13px;padding:14px;text-align:center}
+.stat b{font-size:24px;display:block;color:var(--navy)}.stat span{font-size:11px;color:var(--muted)}
+@media(max-width:700px){.stats{grid-template-columns:repeat(2,1fr)}}
+
+
+.class-nav{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;margin:8px 0 10px}
+.class-title{min-height:40px;border:1px solid #cbd5e1;border-radius:10px;background:#f8fafc;display:flex;align-items:center;justify-content:center;font-weight:900;color:#172b4d}
+.duplicate-btn{width:100%;margin-bottom:10px}
+.duplicate-panel{margin-top:14px;border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;background:#fff}
+.duplicate-head{padding:12px 14px;background:#f8fafc;font-weight:900;display:flex;justify-content:space-between}
+.duplicate-panel table{margin:0}
+.duplicate-count{color:#b42318;font-weight:900}
+.student-delete-btn{border:0;border-radius:7px;padding:5px 9px;background:#fee2e2;color:#b42318;font-weight:800;font-size:11px;cursor:pointer}
+.student-delete-btn:hover{background:#fecaca}
+.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:12px;margin-top:15px}
+table{border-collapse:collapse;width:100%;min-width:780px}th,td{padding:9px 10px;border-bottom:1px solid var(--line);font-size:12px;text-align:left}th{background:#f1f4f8;font-weight:850}
+.mini{font-size:11px;color:var(--muted)}
+.room-list{display:grid;grid-template-columns:repeat(4,1fr);gap:13px}
+@media(max-width:1200px){.room-list{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.room-list{grid-template-columns:1fr}}
+.room-config{border:1px solid #d5ddea;border-radius:15px;padding:15px;background:#fff}
+.room-config h3{margin:0 0 13px;font-size:18px}
+.room-fields{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:8px}
+.room-fields .full{grid-column:1/-1}
+.room-input label{color:#172033}.room-input input{background:#16263d;color:#fff;border-color:#63748b;font-weight:800}
+.bench-row{display:flex;align-items:end;gap:8px}.bench-row>div{flex:1}.bench-btn{width:44px;height:44px;border:1px solid #63748b;border-radius:9px;background:#16263d;color:#fff;font-size:24px;font-weight:900}.bench-count{min-width:35px;text-align:center;font-size:17px;font-weight:900;padding-bottom:11px}
+.room-total{font-size:13px;font-weight:850;margin:12px 0 9px}.board{background:#e7ecf4;border-radius:8px;text-align:center;font-size:11px;font-weight:900;letter-spacing:4px;padding:7px;color:#172033}
+.preview-scroll{overflow:auto;padding-top:8px}
+.matrix{display:grid;gap:4px;align-items:center;min-width:270px}
+.c-label,.r-label{font-size:12px;font-weight:950;color:#172033;text-align:center}
+.c-label{height:24px;display:grid;place-items:center}.r-label{text-align:right;padding-right:6px}
+.bench{height:24px;border:1.5px solid #8fa0b5;border-radius:5px;background:#fff;min-width:24px}
+.extra-bench-row{display:flex;gap:4px;margin:7px 0 0 38px}.extra-bench{width:30px;height:24px;border:1.5px solid #8fa0b5;border-radius:5px;background:#fff}
+.pair-section{margin-top:13px;padding-top:12px;border-top:1px solid #e1e7ef}
+.pair-section h4{margin:0 0 8px;font-size:12px;color:#344054}
+.pair-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.pair-note{font-size:10px;color:#667085;margin-top:6px;line-height:1.35}
+.room-config-actions{display:flex;justify-content:space-between;gap:8px;margin-top:12px}
+.summary-strip{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:15px}.summary-box{background:#24385d;color:#fff;border-radius:15px;text-align:center;padding:15px}.summary-box b{font-size:29px;color:#83a9ff;display:block}.summary-box span{font-size:12px}
+.controls{display:grid;grid-template-columns:1.2fr 1.2fr 1fr 1fr;gap:12px}
+@media(max-width:1000px){.controls{grid-template-columns:1fr 1fr}}@media(max-width:600px){.controls{grid-template-columns:1fr}}
+.subject-preview{background:#f6f8fb;border:1px solid var(--line);border-radius:12px;padding:13px;margin-top:12px}
+.subject-preview .subject{font-size:19px;font-weight:900;color:var(--navy);margin-top:4px}
+.generate-box{background:linear-gradient(135deg,#15283f,#294d7c);color:#fff;border-radius:17px;padding:20px;margin-top:15px}
+.generate-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}.generate-stat{background:#ffffff12;border:1px solid #ffffff20;border-radius:12px;padding:12px}.generate-stat span{font-size:10px;opacity:.75;display:block}.generate-stat b{font-size:16px;display:block;margin-top:4px}
+@media(max-width:850px){.generate-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:500px){.generate-grid{grid-template-columns:1fr}}
+.big-generate{margin-top:16px;width:100%;padding:16px;background:#f4b740;color:#172033;font-size:16px;border-radius:12px;border:0;font-weight:950}
+.results-head{display:flex;justify-content:space-between;align-items:end;gap:15px;flex-wrap:wrap}
+.results-head h2{margin:0}.result-meta{color:var(--muted);font-size:12px}
+.room-results{display:grid;grid-template-columns:repeat(2,1fr);gap:16px;margin-top:16px}
+@media(max-width:900px){.room-results{grid-template-columns:1fr}}
+.result-room{background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden}
+.result-room-head{background:#172a44;color:#fff;padding:14px 16px;display:flex;justify-content:space-between;gap:10px}.result-room-head h3{margin:0}.result-room-head span{font-size:11px;opacity:.8}
+.result-room-body{padding:14px}.seat-map{display:grid;gap:5px;align-items:stretch}.seat-cell{min-height:60px;border:1px solid #c7d1df;border-radius:8px;background:#fdfefe;padding:6px;text-align:center;display:flex;flex-direction:column;justify-content:center}
+.bench-pair{min-height:62px;border:1px solid #b8c5d5;border-radius:8px;background:#fff;display:grid;grid-template-columns:1fr 1fr;overflow:hidden}
+.bench-student{padding:6px 5px;display:flex;flex-direction:column;justify-content:center;text-align:center;min-width:0}
+.bench-student+ .bench-student{border-left:1px dashed #aebbc9}
+.bench-student strong{font-size:12px;color:#17365d;font-weight:900;display:block;line-height:1.1}
+.seat-code{font-size:14px!important;color:#c62828!important;font-weight:950!important;line-height:1.05!important;letter-spacing:.2px}
+.bench-student b{font-size:8px!important;line-height:1.1!important;font-weight:600!important}
+.bench-student small{font-size:7px!important;color:#667085!important}
+
+.bench-student b{font-size:8px;line-height:1.1;font-weight:600;display:block;margin-top:2px}
+.bench-student small{font-size:7px;color:#7a8698;display:block;margin-top:2px}
+.bench-empty{color:#98a2b3}
+.seat-cell strong{font-size:11px;color:#17365d}.seat-cell b{font-size:11px;line-height:1.15}.seat-cell small{font-size:9px;color:#667085;margin-top:2px}.empty{background:#f5f7fa;color:#a2adbb}.seat-row-label,.seat-col-label{font-size:10px;font-weight:900;color:#344054;display:flex;align-items:center;justify-content:center}.seat-row-label{justify-content:flex-end;padding-right:5px}
+.extra-result{display:flex;gap:5px;flex-wrap:wrap;margin-top:8px;padding-left:30px}.extra-result .seat-cell{width:90px;min-height:55px}
+.result-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:13px}
+.poster-stage{position:fixed;left:-100000px;top:0}
+.poster{width:1080px;background:#fff;color:#172033;font-family:Inter,Segoe UI,Arial,sans-serif;padding:54px}
+.poster-header{background:linear-gradient(135deg,#14243a,#31588a);color:#fff;border-radius:24px;padding:32px 36px;margin-bottom:24px}.poster-header h1{margin:0;font-size:31px}.poster-header h2{margin:9px 0 0;font-size:22px}.poster-header p{margin:7px 0 0;opacity:.84}
+.poster-room{border:2px solid #d8e0ea;border-radius:20px;overflow:hidden;margin-bottom:22px}.poster-room-head{background:#172a44;color:#fff;padding:20px 24px;display:flex;justify-content:space-between;align-items:center}.poster-room-head h3{margin:0;font-size:24px}.poster-room-head span{font-size:14px}
+.poster-room-body{padding:20px}.poster-seat-map{display:grid;gap:7px}.poster-seat{min-height:76px;border:1.5px solid #aebbc9;border-radius:9px;padding:8px;text-align:center;display:flex;flex-direction:column;justify-content:center}.poster-seat strong{font-size:12px;color:#234c7a}.poster-seat b{font-size:12px;line-height:1.15}.poster-seat small{font-size:9px;color:#667085}
+.wa-room-card{width:1200px;background:#fff;color:#182230;font-family:Arial,sans-serif;padding:26px;box-sizing:border-box}
+.wa-top{display:flex;align-items:center;justify-content:space-between;gap:18px;border-bottom:3px solid #8e1735;padding-bottom:14px;margin-bottom:14px}
+.wa-brand{font-size:25px;font-weight:900;color:#5f1230;line-height:1.15}
+.wa-room-title{font-size:30px;font-weight:900;color:#8e1735;text-align:center}
+.wa-meta{font-size:15px;font-weight:700;text-align:right;line-height:1.5}
+.wa-pair-header{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.wa-side{border-radius:12px;padding:11px 14px;border:2px solid #d8dfe8}
+.wa-left{background:#fff0f2;border-color:#e7a5ae}
+.wa-right{background:#edf5ff;border-color:#9ec0e8}
+.wa-side-title{font-size:18px;font-weight:900;margin-bottom:5px}
+.wa-side-sub{font-size:13px;line-height:1.35}
+.wa-board{background:#e8edf5;border-radius:10px;text-align:center;padding:8px;font-size:18px;font-weight:900;letter-spacing:7px;margin:8px 0 12px}
+.wa-grid{display:grid;gap:5px}
+.wa-grid-row{display:grid;grid-template-columns:44px repeat(var(--cols),1fr);gap:5px;align-items:stretch}
+.wa-row-label,.wa-col-label{font-weight:900;text-align:center;font-size:14px;display:flex;align-items:center;justify-content:center}
+.wa-col-label{padding:5px 0}
+.wa-bench{display:grid;grid-template-columns:1fr 1fr;min-height:62px;border:3px solid #718096;border-radius:8px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(15,23,42,.12)}
+.wa-student{padding:5px;text-align:center;min-width:0}
+.wa-student+.wa-student{border-left:2px solid #9aa8b8}
+.wa-seat{font-size:17px;font-weight:950;color:#c62828;display:block;line-height:1.05;letter-spacing:.2px}
+.wa-name{font-size:9px;font-weight:600;line-height:1.12;color:#344054;display:block}
+.wa-roll{font-size:7.5px;color:#667085;display:block;margin-top:2px}
+.wa-empty{opacity:.38}
+.wa-footer{margin-top:12px;font-size:12px;color:#667085;text-align:center}
+.wa-summary{width:1200px;background:#fff;color:#182230;font-family:Arial,sans-serif;padding:30px;box-sizing:border-box}
+.wa-summary h1{margin:0;color:#5f1230;font-size:30px;text-align:center}
+.wa-summary h2{margin:6px 0 20px;text-align:center;color:#8e1735;font-size:20px}
+.wa-summary table{width:100%;border-collapse:collapse;font-size:15px}
+.wa-summary th{background:#5f1230;color:#fff;padding:10px;text-align:left}
+.wa-summary td{padding:10px;border-bottom:1px solid #dfe5ec;vertical-align:top}
+.wa-summary .left{background:#fff0f2}
+.wa-summary .right{background:#edf5ff}
+.poster-footer{font-size:12px;color:#667085;text-align:center;margin-top:20px}
+.hidden{display:none!important}
+@media print{.no-print{display:none!important}.step{box-shadow:none}}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <div>
+      <h1>VAST Examination Seating Studio</h1>
+      <p>Vidya Academy of Science and Technology · Department of EEE</p>
+    </div>
+    <div class="brand-badge"><b>EEE</b><span>Series Examination</span></div>
+  </div>
+</header>
+
+<main>
+  <section class="step">
+    <div class="step-head"><span class="step-no">1</span><div><h2>Student Data</h2><small>Upload the Excel name/seating list once.</small></div></div>
+    <div class="grid2">
+      <div class="upload">
+        <b>Upload Student Excel</b>
+        <div class="mini">XLSX / XLS / CSV · the app reads Seat No., Roll No. and Student Name automatically, then merges repeated B1/B2 copies of the same student.</div>
+        <input id="studentFile" type="file" accept=".xlsx,.xls,.csv">
+        <div id="studentStatus" class="status" style="margin-top:12px">Waiting for student Excel.</div>
+      </div>
+      <div>
+        <label>Students — Class-wise View</label>
+        <div class="class-nav">
+          <button class="btn btn-soft" id="prevStudentClass" onclick="previousStudentClass()" disabled>← Previous</button>
+          <div id="studentClassTitle" class="class-title">Upload Excel first</div>
+          <button class="btn btn-soft" id="nextStudentClass" onclick="nextStudentClass()" disabled>Next →</button>
+        </div>
+        <button class="btn btn-soft duplicate-btn" onclick="showDuplicates()">View Duplicates</button>
+        <div id="studentStats" class="stats">
+          <div class="stat"><b>0</b><span>Students</span></div>
+          <div class="stat"><b>0</b><span>Classes</span></div>
+          <div class="stat"><b>0</b><span>Sheets</span></div>
+          <div class="stat"><b>0</b><span>Records</span></div>
+        </div>
+      </div>
+    </div>
+    <div id="studentReconcile" class="status" style="margin-top:12px;display:none"></div>
+    <div id="studentPreview"></div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-no">2</span><div><h2>Timetable</h2><small>Upload the DOCX or PDF timetable. Subject code is optional.</small></div></div>
+    <div class="grid2">
+      <div class="upload">
+        <b>Upload Examination Timetable</b>
+        <div class="mini">DOCX or PDF · date, time, class and subject names are extracted and remain editable.</div>
+        <input id="ttFile" type="file" accept=".docx,.pdf">
+        <div id="ttStatus" class="status" style="margin-top:12px">Upload the DOCX or PDF timetable to load examination dates, times and subjects.</div>
+      </div>
+      <div>
+        <label>Quick check</label>
+        <div class="stats">
+          <div class="stat"><b id="ttDays">0</b><span>Exam Slots</span></div>
+          <div class="stat"><b id="ttRows">0</b><span>Entries</span></div>
+          <div class="stat"><b id="ttClasses">0</b><span>Classes</span></div>
+          <div class="stat"><b id="ttSubjects">0</b><span>Subjects</span></div>
+        </div>
+      </div>
+    </div>
+    <div id="ttPreview"></div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-no">3</span><div><h2>Examination Rooms</h2><small>Configure the physical rooms. The default setup matches the rooms in your reference layout.</small></div></div>
+    <div id="rooms" class="room-list"></div>
+    <div class="summary-strip">
+      <div class="summary-box"><b id="totalSeats">0</b><span>Total Available Seats</span></div>
+      <div class="summary-box"><b id="totalStudents2">0</b><span>Total Students Loaded</span></div>
+    </div>
+    <div class="actions no-print">
+      <button class="btn btn-soft" onclick="addRoom()">+ Add Room</button>
+      <button class="btn btn-primary" onclick="saveRooms()">Save Room Configuration</button>
+    </div>
+  </section>
+
+  <section class="step">
+    <div class="step-head"><span class="step-no">4</span><div><h2>Generate Seating</h2><small>Select the examination. The subject and student count are filled automatically.</small></div></div>
+    <div class="controls">
+      <div><label>Examination Date & Time</label><select id="examSlot"><option value="">Upload timetable first</option></select></div>
+      
+      <div><label>Seating Strategy</label><select id="strategy"><option value="fixed">Fixed Batch Order — No Shuffle</option></select></div>
+      <div><label>Display Mode</label><select id="displayMode"><option value="student">Student View</option><option value="admin">Detailed Admin View</option></select></div>
+    </div>
+    <div id="subjectPreview" class="subject-preview hidden"></div>
+    <div class="generate-box">
+      <div class="generate-grid">
+        <div class="generate-stat"><span>DATE</span><b id="gDate">—</b></div>
+        <div class="generate-stat"><span>TIME</span><b id="gTime">—</b></div>
+        <div class="generate-stat"><span>CLASS</span><b id="gClass">—</b></div>
+        <div class="generate-stat"><span>STUDENTS / SEATS</span><b id="gCapacity">—</b></div>
+      </div>
+      <button class="big-generate" onclick="generateSeating()">GENERATE SEATING ARRANGEMENT</button>
+      <div id="generateStatus" style="margin-top:10px;color:#fff9; font-size:12px">Choose an examination date & time. The configured LEFT/RIGHT batches will be used automatically.</div>
+    </div>
+  </section>
+
+  <section class="step" id="resultsSection">
+    <div class="results-head">
+      <div><h2>Daily Seating Arrangement</h2><div id="resultMeta" class="result-meta">Nothing generated yet.</div></div>
+      <div class="actions no-print" style="margin-top:0">
+        <button class="btn btn-blue" onclick="exportAllRooms()">Create 5 WhatsApp Images</button>
+        <button class="btn btn-soft" onclick="downloadFivePagePDF()">Download 5-Page PDF</button>
+        <button class="btn btn-soft" onclick="downloadAllPoster()">Download Poster</button>
+        <button class="btn btn-soft" onclick="window.print()">Print</button>
+      </div>
+    </div>
+    <div id="results" style="margin-top:15px">
+      <div class="status">Generate an arrangement to see each room with every student's seat.</div>
+    </div>
+  </section>
+</main>
+
+<div id="posterStage" class="poster-stage"></div>
+
+<script>
+const state={
+ students:[], classes:{}, groups:{}, sheets:[], duplicates:[], studentClassIndex:0, timetable:[], rooms:[], arrangement:null, lastPoster:null, lastPosterCanvases:[]
+};
+
+function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
+function norm(s){return String(s??'').replace(/\s+/g,' ').trim()}
+function roomCapacity(r){return Math.max(0,(+r.rows||0)*(+r.cols||0)+(+r.benches||0))}
+function dateKey(date,time){return `${norm(date)}|${norm(time)}`}
+function dateDisplay(v){
+  if(v instanceof Date && !isNaN(v)) return `${String(v.getDate()).padStart(2,'0')}-${String(v.getMonth()+1).padStart(2,'0')}-${v.getFullYear()}`;
+  const s=norm(v), m=s.match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+  return m?`${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}-${m[3]}`:s;
+}
+function dayFromDate(s){
+ const m=String(s).match(/(\d{1,2})[-/](\d{1,2})[-/](\d{4})/); if(!m)return '';
+ return new Date(Date.UTC(+m[3],+m[2]-1,+m[1])).toLocaleDateString('en-US',{weekday:'short',timeZone:'UTC'}).toUpperCase();
+}
+function setStatus(id,msg,kind=''){const e=document.getElementById(id);e.className='status '+kind;e.textContent=msg}
+function classFromSeat(seat){const m=norm(seat).match(/^(S\d+)/i);return m?m[1].toUpperCase():''}
+
+document.getElementById('studentFile').addEventListener('change',async e=>{
+ const f=e.target.files[0];if(!f)return;
+ try{
+  const wb=XLSX.read(await f.arrayBuffer(),{type:'array',cellDates:true});
+  state.students=[];state.classes={};state.groups={};state.sheets=wb.SheetNames;
+  for(const sn of wb.SheetNames){
+   const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,defval:''});
+   let h=-1;
+   for(let i=0;i<Math.min(rows.length,6);i++){
+    const a=rows[i].map(norm);
+    if(a.some(x=>/seat\s*no/i.test(x))&&a.some(x=>/roll/i.test(x))&&a.some(x=>/student\s*name/i.test(x))){h=i;break}
+   }
+   if(h<0)continue;
+   const heads=rows[h].map(norm);
+   const nameI=heads.findIndex(x=>/student\s*name/i.test(x));
+   const rollI=heads.findIndex(x=>/roll/i.test(x));
+   const seatI=heads.findIndex(x=>/seat/i.test(x));
+   for(let r=h+1;r<rows.length;r++){
+    const row=rows[r];const seat=norm(row[seatI]),name=norm(row[nameI]);
+    if(!seat||!name)continue;
+    const cls=classFromSeat(seat);if(!cls)continue;
+    const bm=sn.match(/\bB(\d+)\b/i);
+    const batch=bm?`Batch ${bm[1]}`:'Batch 1';
+    const group=`${cls} ${batch}`;
+    state.students.push({sheet:sn,class:cls,batch,group,seat,roll:norm(row[rollI]),name});
+   }
+  }
+  // Reconcile repeated B1/B2 copies into one active student list.
+  const rawWorkbookRows=state.students.length;
+
+  // Preserve exact duplicate provenance BEFORE reconciliation.
+  // A duplicate means the same Class + Seat No. + Roll No. + Student Name
+  // appearing in more than one source sheet.
+  const duplicateMap=new Map();
+  for(const s of state.students){
+    const dKey=[s.class,norm(s.seat),norm(s.roll),norm(s.name).toUpperCase()].join('|');
+    if(!duplicateMap.has(dKey))duplicateMap.set(dKey,[]);
+    duplicateMap.get(dKey).push({...s});
+  }
+  state.duplicates=[...duplicateMap.values()]
+    .filter(list=>list.length>1)
+    .sort((a,b)=>String(a[0].class).localeCompare(String(b[0].class),undefined,{numeric:true}) || ((parseInt(a[0].roll)||999999)-(parseInt(b[0].roll)||999999)));
+
+  const canonical=[];
+  const parent=[];
+  function findRoot(i){ while(parent[i]!==i){ parent[i]=parent[parent[i]]; i=parent[i]; } return i; }
+  function union(a,b){ a=findRoot(a); b=findRoot(b); if(a!==b) parent[b]=a; }
+  const byRoll=new Map(), byName=new Map();
+  for(const s of state.students){
+    const i=canonical.length; canonical.push(s); parent.push(i);
+    const rollKey=`${s.class}|${norm(s.roll)}`;
+    const nameKey=`${s.class}|${norm(s.name).toUpperCase()}`;
+    if(norm(s.roll) && byRoll.has(rollKey)) union(i,byRoll.get(rollKey)); else if(norm(s.roll)) byRoll.set(rollKey,i);
+    if(norm(s.name) && byName.has(nameKey)) union(i,byName.get(nameKey)); else if(norm(s.name)) byName.set(nameKey,i);
+  }
+  const merged=new Map();
+  for(let i=0;i<canonical.length;i++){
+    const root=findRoot(i), current=canonical[i];
+    if(!merged.has(root)) merged.set(root,current);
+    else {
+      const keep=merged.get(root);
+      if(!keep.roll && current.roll) keep.roll=current.roll;
+      if(!keep.name && current.name) keep.name=current.name;
+    }
+  }
+  state.students=[...merged.values()];
+  state.rawStudentCount=rawWorkbookRows;
+  state.classes={}; state.groups={};
+
+  for(const s of state.students)(state.classes[s.class]??=[]).push(s);
+  for(const c of Object.keys(state.classes))
+    state.classes[c].sort((a,b)=>(parseInt(a.roll)||9999)-(parseInt(b.roll)||9999));
+
+  // The uploaded workbook uses B1/B2 sheets as master copies for S3/S5/S7.
+  // When the two sheets substantially overlap, they are NOT two different student lists.
+  // Create the actual two batches by splitting the active class list in roll-number order,
+  // without shuffling. This produces S7 Batch 1 = 33 and Batch 2 = 33 for the current 66 active S7 students.
+  const byClassSheets={};
+  for(const s of canonical){
+    (byClassSheets[s.class]??={});
+    const m=s.sheet.match(/\bB(\d+)\b/i);
+    if(m)(byClassSheets[s.class][`Batch ${m[1]}`]??=[]).push(s);
+  }
+  for(const cls of Object.keys(state.classes)){
+    const arr=state.classes[cls].slice();
+    const b1=(byClassSheets[cls]?.['Batch 1']||[]).map(s=>`${s.class}|${norm(s.roll)}`);
+    const b2=(byClassSheets[cls]?.['Batch 2']||[]).map(s=>`${s.class}|${norm(s.roll)}`);
+    const overlap=b1.length&&b2.length ? b1.filter(x=>b2.includes(x)).length/Math.min(b1.length,b2.length) : 0;
+    if(overlap>0.8 || !b1.length || !b2.length){
+      const mid=Math.ceil(arr.length/2);
+      state.groups[`${cls} Batch 1`]=arr.slice(0,mid).map(s=>({...s,batch:'Batch 1',group:`${cls} Batch 1`}));
+      state.groups[`${cls} Batch 2`]=arr.slice(mid).map(s=>({...s,batch:'Batch 2',group:`${cls} Batch 2`}));
+    }else{
+      state.groups[`${cls} Batch 1`]=arr.filter(s=>b1.includes(`${s.class}|${norm(s.roll)}`)).map(s=>({...s,batch:'Batch 1',group:`${cls} Batch 1`}));
+      state.groups[`${cls} Batch 2`]=arr.filter(s=>b2.includes(`${s.class}|${norm(s.roll)}`)).map(s=>({...s,batch:'Batch 2',group:`${cls} Batch 2`}));
+    }
+  }
+  for(const g of Object.keys(state.groups))
+    state.groups[g].sort((a,b)=>(parseInt(a.roll)||9999)-(parseInt(b.roll)||9999));
+  state.studentClassIndex=0;
+  refreshStudentClass();
+  updateStudentStats();
+  const rec=document.getElementById('studentReconcile');
+  if(rec){rec.style.display='block';rec.className='status ok';rec.innerHTML=`<b>${state.students.length} active students detected.</b> Raw workbook rows: ${state.rawStudentCount||0}. Duplicate records removed: ${Math.max(0,(state.rawStudentCount||0)-state.students.length)}. The active count is calculated from unique class + roll/name identities; repeated B1/B2 master copies are not double-counted.`;}
+  if(state.rooms.length && Object.keys(state.groups).length){
+    state.rooms.forEach(r=>{r.groupA='';r.groupB=''});
+    renderRooms();
+  }
+  renderStudentPreview();
+  setStatus('studentStatus',`Loaded ${state.students.length} active students from ${state.sheets.length} sheet(s). Repeated B1/B2 master copies were reconciled without shuffling students.`,'ok');
+ }catch(err){setStatus('studentStatus','Excel could not be read: '+err.message,'err')}
+});
+function studentClassList(){
+ return Object.keys(state.classes).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+}
+function refreshStudentClass(){
+ const classes=studentClassList();
+ if(state.studentClassIndex>=classes.length)state.studentClassIndex=Math.max(0,classes.length-1);
+ const title=document.getElementById('studentClassTitle');
+ if(!classes.length){
+   title.textContent='Upload Excel first';
+ }else{
+   const cls=classes[state.studentClassIndex];
+   title.textContent=`${cls} · ${(state.classes[cls]||[]).length} Students · Class ${state.studentClassIndex+1} of ${classes.length}`;
+ }
+ document.getElementById('prevStudentClass').disabled=state.studentClassIndex<=0;
+ document.getElementById('nextStudentClass').disabled=state.studentClassIndex>=classes.length-1;
+ renderStudentPreview();
+}
+function previousStudentClass(){
+ if(state.studentClassIndex>0){state.studentClassIndex--;refreshStudentClass();}
+}
+function nextStudentClass(){
+ const n=studentClassList().length;
+ if(state.studentClassIndex<n-1){state.studentClassIndex++;refreshStudentClass();}
+}
+function updateStudentStats(){
+ const classes=Object.keys(state.classes);
+ document.getElementById('studentStats').innerHTML=[
+  [state.students.length,'Active Students'],[classes.length,'Classes'],[state.sheets.length,'Sheets'],[state.duplicates.length,'Duplicate Sets']
+ ].map(x=>`<div class="stat"><b>${x[0]}</b><span>${x[1]}</span></div>`).join('');
+ document.getElementById('totalStudents2').textContent=state.students.length;
+}
+function renderStudentPreview(){
+ const classes=studentClassList();
+ if(!classes.length){document.getElementById('studentPreview').innerHTML='';return;}
+ const c=classes[state.studentClassIndex];
+ const a=(state.classes[c]||[]).slice().sort((x,y)=>(parseInt(x.roll)||999999)-(parseInt(y.roll)||999999));
+ if(!a.length){document.getElementById('studentPreview').innerHTML='';return;}
+
+ document.getElementById('studentPreview').innerHTML=`
+ <div class="table-wrap">
+  <table>
+   <thead><tr><th>S.No.</th><th>Seat No.</th><th>Roll No.</th><th>Student Name</th><th>Source Sheet</th><th>Delete</th></tr></thead>
+   <tbody>${a.map((s,i)=>`
+    <tr>
+     <td><b>${i+1}</b></td>
+     <td><b>${esc(s.seat)}</b></td>
+     <td>${esc(s.roll)}</td>
+     <td>${esc(s.name)}</td>
+     <td>${esc(s.sheet||'—')}</td>
+     <td><button class="student-delete-btn" onclick="deleteStudent('${esc(s.class)}','${esc(s.seat)}')">Delete</button></td>
+    </tr>`).join('')}</tbody>
+  </table>
+ </div>
+ <div class="mini" style="margin-top:7px">
+   ${esc(c)} contains <b>${a.length}</b> active students. Use Previous / Next to move class-by-class; the full student list is no longer shown in a dropdown.
+ </div>`;
+}
+function showDuplicates(){
+ const host=document.getElementById('studentPreview');
+ if(!state.duplicates.length){
+   host.innerHTML=`<div class="duplicate-panel"><div class="duplicate-head"><span>Duplicate Records</span><span class="duplicate-count">None found</span></div><div style="padding:14px">No exact duplicate student records were detected in the uploaded workbook.</div></div>`;
+   return;
+ }
+ const rows=state.duplicates.map((list,i)=>{
+   const s=list[0];
+   return `<tr>
+    <td>${i+1}</td>
+    <td><b>${esc(s.class)}</b></td>
+    <td><b>${esc(s.seat)}</b></td>
+    <td>${esc(s.roll)}</td>
+    <td>${esc(s.name)}</td>
+    <td>${list.length}</td>
+    <td>${list.map(x=>`<span class="tag">${esc(x.sheet)}</span>`).join(' ')}</td>
+   </tr>`;
+ }).join('');
+ host.innerHTML=`
+  <div class="duplicate-panel">
+   <div class="duplicate-head">
+    <span>Duplicate Records</span>
+    <span class="duplicate-count">${state.duplicates.length} duplicate sets · ${state.duplicates.reduce((n,x)=>n+x.length-1,0)} extra copies</span>
+   </div>
+   <div class="table-wrap">
+    <table>
+     <thead><tr><th>S.No.</th><th>Class</th><th>Seat No.</th><th>Roll No.</th><th>Student Name</th><th>Copies</th><th>Sheets</th></tr></thead>
+     <tbody>${rows}</tbody>
+    </table>
+   </div>
+   <div style="padding:10px 14px;font-size:12px;color:#667085">
+    Exact duplicate definition: same Class + Seat No. + Roll No. + Student Name appearing in multiple sheets.
+   </div>
+  </div>`;
+}
+function deleteStudent(cls,seat){
+ const targetClass=String(cls||'').trim().toUpperCase();
+ const targetSeat=String(seat||'').trim().toUpperCase();
+ const student=state.students.find(s=>String(s.class).toUpperCase()===targetClass && String(s.seat).toUpperCase()===targetSeat);
+ if(!student)return setStatus('studentStatus','Student not found: '+targetSeat,'err');
+ if(!confirm(`Delete ${student.name} (${student.seat}, Roll ${student.roll}) from the active student list?`))return;
+
+ state.students=state.students.filter(s=>!(String(s.class).toUpperCase()===targetClass && String(s.seat).toUpperCase()===targetSeat));
+ if(state.classes[targetClass])state.classes[targetClass]=state.classes[targetClass].filter(s=>String(s.seat).toUpperCase()!==targetSeat);
+ for(const g of Object.keys(state.groups||{})){
+   state.groups[g]=(state.groups[g]||[]).filter(s=>!(String(s.class).toUpperCase()===targetClass && String(s.seat).toUpperCase()===targetSeat));
+ }
+ updateStudentStats();
+ refreshStudentClass();
+ setStatus('studentStatus',`Deleted ${student.seat} — ${student.name}.`,'ok');
+}
+
+
+function cleanClassHeader(v){
+ const s=norm(v).toUpperCase();
+ const m=s.match(/\bS([1357])\b/);
+ return m ? `S${m[1]}` : '';
+}
+function cleanDateCell(v){
+ const s=norm(v).replace(/[–—]/g,'-');
+ const m=s.match(/\b(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})\b/);
+ return m ? `${m[1].padStart(2,'0')}-${m[2].padStart(2,'0')}-${m[3]}` : '';
+}
+function cleanTimeCell(v){
+ const s=norm(v).replace(/\s+/g,' ');
+ const m=s.match(/(\d{1,2})\s*[.:]?\s*(\d{2})\s*(AM|PM)?\s*(?:to|-)\s*(\d{1,2})\s*[.:]?\s*(\d{2})\s*(AM|PM)?/i);
+ if(!m)return s;
+ const ap1=(m[3]||'').toUpperCase(), ap2=(m[6]||m[3]||'').toUpperCase();
+ return `${m[1].padStart(2,'0')}.${m[2]}${ap1} to ${m[4].padStart(2,'0')}.${m[5]}${ap2}`;
+}
+function cleanSubjectCell(v){
+ return norm(v)
+   .replace(/\s*\n+\s*/g,' ')
+   .replace(/\s{2,}/g,' ')
+   .replace(/^\s*[-–—]\s*/,'')
+   .trim();
+}
+function addTT(date,time,cls,subject){
+ const d=cleanDateCell(date), t=cleanTimeCell(time), c=cleanClassHeader(cls), s=cleanSubjectCell(subject);
+ if(!d||!t||!c||!s)return;
+ // Ignore timetable placeholders that are not examination subjects.
+ if(/^REGULAR\s+CLASS$/i.test(s))return;
+ const codeMatches=[...s.matchAll(/\(([^()]{1,30})\)/g)].map(m=>norm(m[1])).filter(Boolean);
+ const code=codeMatches.length ? codeMatches[codeMatches.length-1] : '';
+ state.timetable.push({
+   date:d, day:dayFromDate(d), time:t, class:c,
+   subject:s, code, slotKey:`${d}|${t}`
+ });
+}
+
+async function parseDocx(f){
+ // Primary DOCX parser: read the actual Word table XML. This preserves the six columns
+ // in the uploaded VAST timetable: Date | Time | S1 | S3 | S5 | S7.
+ if(typeof JSZip==='undefined') throw Error('DOCX reader library did not load. Check your internet connection and reload the HTML page.');
+ const zip=await JSZip.loadAsync(await f.arrayBuffer());
+ const xml=await zip.file('word/document.xml').async('string');
+ const doc=new DOMParser().parseFromString(xml,'application/xml');
+ const W='http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+ const tables=[...doc.getElementsByTagNameNS(W,'tbl')];
+ let found=false;
+ for(const table of tables){
+   const trs=[...table.getElementsByTagNameNS(W,'tr')];
+   if(trs.length<2)continue;
+   const rows=trs.map(tr=>[...tr.getElementsByTagNameNS(W,'tc')].map(tc=>norm([...tc.getElementsByTagNameNS(W,'t')].map(x=>x.textContent).join(' '))));
+   let header=-1;
+   for(let i=0;i<rows.length;i++){
+     const row=rows[i];
+     if(row.some(x=>/^date$/i.test(x)) && row.some(x=>/^time$/i.test(x)) && row.filter(x=>cleanClassHeader(x)).length>=3){header=i;break;}
+   }
+   if(header<0)continue;
+   const hr=rows[header], ci={};
+   hr.forEach((h,i)=>{const c=cleanClassHeader(h);if(c)ci[c]=i});
+   for(let i=header+1;i<rows.length;i++){
+     const r=rows[i]; if(r.length<2)continue;
+     const date=cleanDateCell(r[0]), time=cleanTimeCell(r[1]); if(!date||!time)continue;
+     for(const cls of ['S1','S3','S5','S7']){
+       if(ci[cls]!==undefined) addTT(date,time,cls,r[ci[cls]]||'');
+     }
+   }
+   found=state.timetable.length>0;
+   if(found)break;
+ }
+ if(!found){
+   // Fallback to Mammoth if the DOCX uses an unusual table structure.
+   if(typeof mammoth==='undefined')throw Error('No timetable table found in the DOCX.');
+   const result=await mammoth.convertToHtml({arrayBuffer:await f.arrayBuffer()});
+   const dom=new DOMParser().parseFromString(result.value,'text/html');
+   for(const table of [...dom.querySelectorAll('table')]){
+     const rows=[...table.rows].map(tr=>[...tr.cells].map(td=>norm(td.innerText)));
+     const hi=rows.findIndex(r=>r.some(x=>/^date$/i.test(x))&&r.some(x=>/^time$/i.test(x)));
+     if(hi<0)continue;
+     const ci={}; rows[hi].forEach((h,i)=>{const c=cleanClassHeader(h);if(c)ci[c]=i});
+     for(let i=hi+1;i<rows.length;i++){
+       const r=rows[i],date=cleanDateCell(r[0]),time=cleanTimeCell(r[1]);if(!date||!time)continue;
+       for(const cls of ['S1','S3','S5','S7'])if(ci[cls]!==undefined)addTT(date,time,cls,r[ci[cls]]||'');
+     }
+   }
+ }
+}
+async function parsePdf(f){
+ if(typeof pdfjsLib==='undefined')throw Error('PDF reader library did not load. Check your internet connection and reload the HTML page.');
+ const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await f.arrayBuffer())}).promise;
+ for(let p=1;p<=pdf.numPages;p++){
+   const page=await pdf.getPage(p),tc=await page.getTextContent();
+   const items=tc.items.map(it=>({x:it.transform[4],y:it.transform[5],t:norm(it.str)})).filter(x=>x.t);
+   const groups=[];
+   for(const it of items){let g=groups.find(a=>Math.abs(a.y-it.y)<3);if(!g){g={y:it.y,items:[]};groups.push(g)}g.items.push(it)}
+   groups.sort((a,b)=>b.y-a.y); groups.forEach(g=>g.items.sort((a,b)=>a.x-b.x));
+   // Detect rows by date; on each date row, collect text by x-position into the six timetable columns.
+   const headerIndex=groups.findIndex(g=>g.items.map(x=>x.t).join(' ').match(/Date.*Time.*S1.*S3.*S5.*S7/i));
+   const candidates=headerIndex>=0?groups.slice(headerIndex+1):groups;
+   for(let i=0;i<candidates.length;i++){
+     const line=candidates[i].items.map(x=>x.t).join(' ');
+     const dm=line.match(/\d{1,2}[-/]\d{1,2}[-/]\d{4}/); if(!dm)continue;
+     const date=cleanDateCell(dm[0]);
+     let time='';
+     const timeMatch=line.match(/\d{1,2}[.:]\d{2}\s*(?:AM|PM)?\s*(?:to|-)\s*\d{1,2}[.:]\d{2}\s*(?:AM|PM)?/i);
+     if(timeMatch)time=cleanTimeCell(timeMatch[0]);
+     if(!time && candidates[i+1]){const t=candidates[i+1].items.map(x=>x.t).join(' ');const tm=t.match(/\d{1,2}[.:]\d{2}.*\d{1,2}[.:]\d{2}/);if(tm)time=cleanTimeCell(tm[0]);}
+     if(!time)continue;
+     // Find the next ~6 text groups and classify by their horizontal positions.
+     const block=candidates.slice(i,i+9).flatMap(g=>g.items);
+     const minX=Math.min(...block.map(x=>x.x)),maxX=Math.max(...block.map(x=>x.x));
+     const width=(maxX-minX)/6||1;
+     const buckets=[[],[],[],[]];
+     for(const it of block){
+       if(it.t===time||it.t===date)continue;
+       const pos=(it.x-minX)/width;
+       const col=Math.max(0,Math.min(5,Math.floor(pos)));
+       if(col>=2) buckets[col-2].push(it.t);
+     }
+     ['S1','S3','S5','S7'].forEach((cls,j)=>addTT(date,time,cls,buckets[j].join(' ')));
+   }
+ }
+}
+
+document.getElementById('ttFile').addEventListener('change',async e=>{
+ const f=e.target.files[0];
+ if(!f)return;
+ const status=document.getElementById('ttStatus');
+ try{
+   state.timetable=[];
+   status.className='status';
+   status.textContent=`Reading ${f.name}…`;
+   const ext=(f.name.split('.').pop()||'').toLowerCase();
+   if(ext==='docx') await parseDocx(f);
+   else if(ext==='pdf') await parsePdf(f);
+   else throw Error('Please upload a DOCX or PDF timetable.');
+   normalizeTimetable();
+   if(!state.timetable.length)throw Error('No examination timetable entries could be extracted. Please check the timetable format.');
+   renderTimetable();
+   populateSlots();
+   status.className='status ok';
+   status.textContent=`Timetable loaded successfully: ${state.timetable.length} class-wise examination entries from ${new Set(state.timetable.map(x=>x.slotKey)).size} examination slots.`;
+ }catch(err){
+   state.timetable=[];
+   document.getElementById('ttPreview').innerHTML='';
+   document.getElementById('examSlot').innerHTML='<option value="">Upload timetable first</option>';
+   status.className='status err';
+   status.textContent=`Timetable could not be read: ${err.message}`;
+ }
+});
+
+function normalizeTimetable(){
+ const seen=new Set();
+ state.timetable=state.timetable.filter(r=>{r.slotKey=`${r.date}|${r.time}`;const k=`${r.slotKey}|${r.class}|${r.subject}`;if(seen.has(k))return false;seen.add(k);return true;});
+}
+function renderTimetable(){
+ const e=document.getElementById('ttPreview');
+ const uniq=state.timetable;
+ document.getElementById('ttRows').textContent=uniq.length;
+ document.getElementById('ttDays').textContent=new Set(uniq.map(x=>dateKey(x.date,x.time))).size;
+ document.getElementById('ttClasses').textContent=new Set(uniq.map(x=>x.class)).size;
+ document.getElementById('ttSubjects').textContent=new Set(uniq.map(x=>x.subject)).size;
+ if(!uniq.length){e.innerHTML='';return}
+ e.innerHTML=`<div class="table-wrap"><table><thead><tr><th>Date</th><th>Day</th><th>Time</th><th>Class</th><th>Code</th><th>Subject</th></tr></thead><tbody>${uniq.map((r,i)=>`<tr>
+ <td><input value="${esc(r.date)}" onchange="state.timetable[${i}].date=this.value;normalizeTimetable();populateSlots()"></td>
+ <td><input value="${esc(r.day)}" onchange="state.timetable[${i}].day=this.value"></td>
+ <td><input value="${esc(r.time)}" onchange="state.timetable[${i}].time=this.value;normalizeTimetable();populateSlots()"></td>
+ <td><input value="${esc(r.class)}" onchange="state.timetable[${i}].class=this.value;populateSlots()"></td>
+ <td><input value="${esc(r.code)}" onchange="state.timetable[${i}].code=this.value"></td>
+ <td><input value="${esc(r.subject)}" onchange="state.timetable[${i}].subject=this.value"></td>
+ </tr>`).join('')}</tbody></table></div>`;
+}
+function populateSlots(){
+ const sel=document.getElementById('examSlot');
+ const slots=[...new Set(state.timetable.map(x=>x.slotKey||dateKey(x.date,x.time)))];
+ sel.innerHTML='<option value="">Select examination date & time</option>'+slots.map(k=>{const [d,t]=k.split('|');return `<option value="${esc(k)}">${esc(d)} · ${esc(t)}</option>`}).join('');
+ updateGenerateSummary();
+}
+document.getElementById('examSlot').addEventListener('change',()=>{ updateGenerateSummary(); });
+
+function classFromGroup(group){
+ const m=String(group||'').match(/^(S\d+)/i);
+ return m?m[1].toUpperCase():'';
+}
+function getExamClassInfo(exam,group){
+ const cls=classFromGroup(group);
+ const direct=exam?.subjects?.[cls];
+ if(direct)return {class:cls,subject:direct.subject||'',code:direct.code||''};
+ const fallback=(state.timetable||[]).find(x=>x.slotKey===exam?.slotKey&&x.class===cls);
+ return {class:cls,subject:fallback?.subject||'',code:fallback?.code||''};
+}
+function subjectForGroup(exam,group){return getExamClassInfo(exam,group).subject;}
+function subjectCodeForGroup(exam,group){return getExamClassInfo(exam,group).code;}
+
+function selectedExam(){
+ const slotKey=document.getElementById('examSlot')?.value;
+ if(!slotKey)return null;
+ const rows=(state.timetable||[]).filter(x=>x.slotKey===slotKey);
+ if(!rows.length)return null;
+
+ const first=rows[0];
+ const subjects={};
+ rows.forEach(x=>{
+   subjects[x.class]={
+     class:x.class,
+     subject:x.subject||'',
+     code:x.code||'',
+     date:x.date,
+     day:x.day,
+     time:x.time
+   };
+ });
+
+ return {
+   date:first.date,
+   day:first.day,
+   time:first.time,
+   slotKey,
+   subject:first.subject||'',
+   code:first.code||'',
+   subjects
+ };
+}
+
+function updateGenerateSummary(){
+ const e=selectedExam(),groups=state.rooms.flatMap(r=>[r.groupA,r.groupB]).filter(Boolean),a=e?groups.flatMap(g=>state.groups[g]||[]):[];
+ document.getElementById('gDate').textContent=e?.date||'—';
+ document.getElementById('gTime').textContent=e?.time||'—';
+ document.getElementById('gClass').textContent=e?'ALL ROOMS':'—';
+ document.getElementById('gCapacity').textContent=e?`${a.length} / ${state.rooms.reduce((n,r)=>n+roomCapacity(r)*2,0)}`:'—';
+ const sp=document.getElementById('subjectPreview');
+ if(e){const rows=state.timetable.filter(x=>x.slotKey===e.slotKey);sp.classList.remove('hidden');sp.innerHTML=`<div class="mini">${esc(e.date)} · ${esc(e.day)} · ${esc(e.time)}</div><div class="subject">${rows.map(x=>`<span style="display:block;margin-top:4px"><b>${esc(x.class)}</b> — ${esc(x.subject)}</span>`).join('')}</div>`}
+ else sp.classList.add('hidden');
+}
+
+function groupOptions(selected='',exclude=''){
+ const groups=Object.keys(state.groups).sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+ const usedElsewhere=new Set();
+ state.rooms.forEach((r)=>{
+   if(r.groupA && r.groupA!==selected && r.groupA!==exclude) usedElsewhere.add(r.groupA);
+   if(r.groupB && r.groupB!==selected && r.groupB!==exclude) usedElsewhere.add(r.groupB);
+ });
+ return `<option value="">— Select batch —</option>`+groups.map(g=>{
+   const disabled=(g===exclude || usedElsewhere.has(g))?'disabled':'';
+   const mark=g===selected?'✓ ':'';
+   return `<option value="${esc(g)}" ${g===selected?'selected':''} ${disabled}>${mark}${esc(g)} — ${state.groups[g].length} students${disabled?' (already used)':''}</option>`;
+ }).join('');
+}
+function groupChoice(g,side){
+ if(!g)return `<span class="group-pill none">No batch selected</span>`;
+ return `<span class="group-pill ${side.toLowerCase()}">${side}: ${esc(g)} · ${state.groups[g]?.length||0} students</span>`;
+}
+function addRoom(data={}){
+ state.rooms.push({
+   name:data.name||`SB-${101+state.rooms.length}`,rows:+data.rows||7,cols:+data.cols||5,benches:+data.benches||0,
+   groupA:data.groupA||'',groupB:data.groupB||''
+ });
+ renderRooms();
+}
+function changeBench(i,d){state.rooms[i].benches=Math.max(0,(+state.rooms[i].benches||0)+d);renderRooms()}
+function removeRoom(i){state.rooms.splice(i,1);renderRooms()}
+function updateRoom(i,key,val){
+ if(key==='name') state.rooms[i].name=val;
+ else if(key==='groupA'){
+   state.rooms[i].groupA=val;
+   if(state.rooms[i].groupB===val) state.rooms[i].groupB='';
+ }else if(key==='groupB'){
+   state.rooms[i].groupB=val;
+   if(state.rooms[i].groupA===val) state.rooms[i].groupA='';
+ }else state.rooms[i][key]=Math.max(1,parseInt(val)||1);
+ renderRooms();
+}
+function roomMatrixPreview(r){
+ const baseRows=+r.rows,cols=+r.cols,totalRows=Math.max(baseRows,Math.ceil(roomCapacity(r)/cols));
+ let s=`<div class="room-preview"><div class="board">B O A R D / F R O N T</div><div class="seat-map" style="grid-template-columns:26px repeat(${cols},1fr);margin-top:8px"><div></div>`;
+ for(let c=1;c<=cols;c++)s+=`<div class="seat-col-label">C${c}</div>`;
+ for(let rr=0;rr<totalRows;rr++){
+   s+=`<div class="seat-row-label">R${rr+1}</div>`;
+   for(let c=0;c<cols;c++)s+=`<div class="seat-cell"></div>`;
+ }
+ return s+`</div></div>`;
+}
+function renderRooms(){
+ document.getElementById('rooms').innerHTML=state.rooms.map((r,i)=>`
+ <div class="room-config">
+  <h3>Room ${i+1}</h3>
+  <div class="room-fields">
+   <div class="room-input"><label>Room No.</label><input type="text" value="${esc(r.name)}" onchange="updateRoom(${i},'name',this.value)"></div>
+   <div class="room-input"><label>Columns</label><input type="number" min="1" value="${r.cols}" onchange="updateRoom(${i},'cols',this.value)"></div>
+   <div class="room-input"><label>Rows</label><input type="number" min="1" value="${r.rows}" onchange="updateRoom(${i},'rows',this.value)"></div>
+   <div class="room-input full"><label>Extra Benches</label><div class="bench-row"><button class="bench-btn" onclick="changeBench(${i},-1)">−</button><div class="bench-count">${r.benches}</div><button class="bench-btn" onclick="changeBench(${i},1)">+</button></div></div>
+  </div>
+  <div class="room-total">${esc(r.name)} · ${r.cols} × ${r.rows} benches${r.benches?` + ${r.benches} extra`:''} · <b>${roomCapacity(r)*2} student places</b></div>
+  <div class="pair-section">
+    <h4>Two students per bench — manually choose the two groups</h4>
+    <div class="pair-grid">
+      <div class="room-input"><label>LEFT SIDE</label><select class="side-left" onchange="updateRoom(${i},'groupA',this.value)">${groupOptions(r.groupA,r.groupB)}</select><div class="group-choice">${groupChoice(r.groupA,'left')}</div></div>
+      <div class="room-input"><label>RIGHT SIDE</label><select class="side-right" onchange="updateRoom(${i},'groupB',this.value)">${groupOptions(r.groupB,r.groupA)}</select><div class="group-choice">${groupChoice(r.groupB,'right')}</div></div>
+    </div>
+    <div class="pair-note"><b>Select both groups manually.</b> The generator does not shuffle students between batches. Each selected batch keeps its exact student list and order. If a batch has fewer students than the room's bench capacity, the remaining benches stay blank.</div>
+  </div>
+  ${roomMatrixPreview(r)}
+  <div class="room-config-actions"><span class="mini">${roomCapacity(r)} benches · ${roomCapacity(r)*2} student places</span><button class="btn btn-danger" onclick="removeRoom(${i})">Remove Room</button></div>
+ </div>`).join('');
+ document.getElementById('totalSeats').textContent=state.rooms.reduce((n,r)=>n+roomCapacity(r)*2,0);
+ updateGenerateSummary();
+}
+function saveRooms(){localStorage.setItem('vast_exam_rooms_v3',JSON.stringify(state.rooms));setStatus('generateStatus','Room configuration saved.','ok')}
+(function(){
+ const saved=localStorage.getItem('vast_exam_rooms_v3');
+ if(saved){try{state.rooms=JSON.parse(saved);state.rooms.forEach(r=>{r.cols=5;r.rows=7;r.groupA=r.groupA||'';r.groupB=r.groupB||''})}catch(e){state.rooms=[]}}
+ if(!state.rooms.length){
+  addRoom({name:'SB-101',rows:7,cols:5});addRoom({name:'SB-102',rows:7,cols:5});
+  addRoom({name:'SB-103',rows:7,cols:5});addRoom({name:'SB-104',rows:7,cols:5});
+ }else renderRooms();
+})();
+
+function orderStudents(arr,strategy){
+ let a=arr.slice();
+ if(strategy==='shuffle')return a.sort(()=>Math.random()-.5);
+ if(strategy==='balanced'){
+  // Round-robin placement order so adjacent rooms receive alternating students.
+  return a;
+ }
+ return a;
+}
+function generateSeating(){
+ const exam=selectedExam();
+ if(!exam)return setStatus('generateStatus','Select the examination date/time first.','warn');
+ const rooms=state.rooms.map(r=>({...r,benches:+r.benches||0}));
+ const configured=rooms.filter(r=>r.groupA||r.groupB);
+ if(!configured.length)return setStatus('generateStatus','No room batch arrangement is configured. Please assign the LEFT and RIGHT batches in Room Configuration first.','warn');
+ const groupRooms={};
+ for(const r of configured)for(const g of [r.groupA,r.groupB].filter(Boolean))(groupRooms[g]??=[]).push(r.name);
+ const repeated=Object.entries(groupRooms).filter(([,names])=>names.length>1);
+ if(repeated.length)return setStatus('generateStatus','A batch is assigned to more than one room: '+repeated.map(x=>`${x[0]} → ${x[1].join(', ')}`).join(' | '),'err');
+ const pools={}; Object.keys(groupRooms).forEach(g=>pools[g]=(state.groups[g]||[]).slice());
+ const subjectForClass=(cls)=>exam.subjects?.[cls]?.subject||'';
+ const codeForClass=(cls)=>exam.subjects?.[cls]?.code||'';
+ for(const r of rooms){
+   r.seats=[];
+   const A=pools[r.groupA]||[],B=pools[r.groupB]||[];
+   let benches=roomCapacity(r);
+   const needed=Math.max(A.length,B.length);
+   if(needed>benches){
+     r.benches=(r.benches||0)+(needed-benches);
+     benches=roomCapacity(r);
+   }
+   for(let i=0;i<benches;i++) r.seats.push({a:A[i]||null,b:B[i]||null});
+   r.leftSubject=subjectForClass(classFromGroup(r.groupA));
+   r.rightSubject=subjectForClass(classFromGroup(r.groupB));
+   r.leftCode=codeForClass(classFromGroup(r.groupA));
+   r.rightCode=codeForClass(classFromGroup(r.groupB));
+   pools[r.groupA]=[]; pools[r.groupB]=[];
+ }
+ const placed=[]; rooms.forEach(r=>r.seats.forEach(seat=>{if(seat.a)placed.push(seat.a);if(seat.b)placed.push(seat.b)}));
+ const expected=Object.values(state.groups).filter((_,i)=>false); // no-op; selected groups are the authoritative pools below
+ const selectedStudents=Object.keys(groupRooms).flatMap(g=>state.groups[g]||[]);
+ if(placed.length!==selectedStudents.length)return setStatus('generateStatus',`Only ${placed.length} of ${selectedStudents.length} selected students were placed. Check the room configuration.`,'err');
+ state.rooms=rooms;
+ localStorage.setItem('vast_exam_rooms_v3',JSON.stringify(state.rooms));
+ state.arrangement={exam,rooms,selectedGroups:Object.keys(groupRooms),totalStudents:placed.length};
+ renderRooms();
+ renderResults();
+ setStatus('generateStatus',`✓ Generated all ${rooms.length} rooms automatically for ${exam.date} · ${exam.time}. ${placed.length} students placed. No batch/student shuffling.`,'ok');
+ document.getElementById('resultsSection').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function classFromGroup(g){const m=norm(g).match(/^(S\d+)/i);return m?m[1].toUpperCase():'';}
+function displaySeatAt(r,rr,c){
+ const baseRows=+r.rows||0, cols=+r.cols||1;
+ const baseCount=baseRows*cols;
+ let idx;
+ if(rr<baseRows) idx=c*baseRows+rr;
+ else idx=baseCount+(rr-baseRows)*cols+c;
+ return r.seats[idx]||null;
+}
+function benchPairHTML(seat){
+ const a=seat?.a,b=seat?.b;
+ return `<div class="bench-pair">
+   <div class="bench-student ${a?'':'bench-empty'}">
+     <strong class="seat-code">${a?esc(a.seat||'—'):'—'}</strong>
+     <b>${a?esc(a.name):'EMPTY'}</b>
+     <small>${a?'Roll '+esc(a.roll||'—'):''}</small>
+   </div>
+   <div class="bench-student ${b?'':'bench-empty'}">
+     <strong class="seat-code">${b?esc(b.seat||'—'):'—'}</strong>
+     <b>${b?esc(b.name):'EMPTY'}</b>
+     <small>${b?'Roll '+esc(b.roll||'—'):''}</small>
+   </div>
+ </div>`;
+}
+function resultRoomHTML(r){
+ const baseRows=+r.rows,cols=+r.cols,totalRows=Math.max(baseRows,Math.ceil(r.seats.length/cols));
+ let s=`<div class="result-room"><div class="result-room-head"><div><h3>${esc(r.name)}</h3><span>LEFT: ${esc(r.groupA||'—')} · ${esc(r.leftSubject||'')} &nbsp; | &nbsp; RIGHT: ${esc(r.groupB||'—')} · ${esc(r.rightSubject||'')}</span></div><span>${r.seats.length} Benches · ${r.seats.length*2} Places</span></div><div class="result-room-body"><div class="board">B O A R D / F R O N T</div><div class="seat-map" style="grid-template-columns:30px repeat(${cols},minmax(110px,1fr));margin-top:12px"><div></div>`;
+ for(let c=1;c<=cols;c++)s+=`<div class="seat-col-label">C${c}</div>`;
+ for(let rr=0;rr<totalRows;rr++){
+   s+=`<div class="seat-row-label">R${rr+1}</div>`;
+   for(let c=0;c<cols;c++){
+     s+=benchPairHTML(displaySeatAt(r,rr,c));
+   }
+ }
+ s+=`</div><div class="mini" style="margin-top:8px">Seat number is shown in red. Filling order: <b>C1 R1→R${baseRows}</b>, then <b>C2 R1→R${baseRows}</b>, continuing column-wise. Extra benches continue as R${baseRows+1}, R${baseRows+2}…</div></div></div>`;
+ return s;
+}
+function renderResults(){
+ const a=state.arrangement,e=a.exam;
+ document.getElementById('resultMeta').textContent=`${e.date} · ${e.day||dayFromDate(e.date)} · ${e.time} · All configured rooms · Two students per bench`;
+ const subjects=[...new Map(a.rooms.flatMap(r=>[r.groupA,r.groupB].filter(Boolean).map(g=>{const cls=classFromGroup(g);const x=e.subjects?.[cls];return [cls,x?.subject||''];}))).entries()].filter(x=>x[1]);
+ document.getElementById('results').innerHTML=`<div class="subject-preview"><div class="mini">EXAMINATION</div><div class="subject">${subjects.map(x=>`<span style="display:block;margin-top:4px"><b>${esc(x[0])}</b> — ${esc(x[1])}</span>`).join('')}</div><div class="mini">${esc(e.date)} · ${esc(e.time)}</div></div><div class="room-results">${a.rooms.map(resultRoomHTML).join('')}</div>`;
+}
+
+
+function buildRoomWhatsAppCard(room, exam){
+ const card=document.createElement('div');
+ card.className='wa-room-card';
+ const baseRows=+room.rows||0, cols=+room.cols||1;
+ const totalRows=Math.max(baseRows,Math.ceil(room.seats.length/cols));
+ let grid=`<div class="wa-grid" style="--cols:${cols}"><div class="wa-grid-row"><div></div>`;
+ for(let c=1;c<=cols;c++)grid+=`<div class="wa-col-label">C${c}</div>`;
+ grid+=`</div>`;
+ for(let rr=0;rr<totalRows;rr++){
+   grid+=`<div class="wa-grid-row"><div class="wa-row-label">R${rr+1}</div>`;
+   for(let c=0;c<cols;c++){
+     const seat=displaySeatAt(room,rr,c);
+     const a=seat?.a,b=seat?.b;
+     grid+=`<div class="wa-bench">
+       <div class="wa-student ${a?'':'wa-empty'}">
+         <span class="wa-seat">${a?esc(a.seat):'—'}</span>
+         <span class="wa-name">${a?esc(a.name):'EMPTY'}</span>
+         <span class="wa-roll">${a?'Roll '+esc(a.roll):''}</span>
+       </div>
+       <div class="wa-student ${b?'':'wa-empty'}">
+         <span class="wa-seat">${b?esc(b.seat):'—'}</span>
+         <span class="wa-name">${b?esc(b.name):'EMPTY'}</span>
+         <span class="wa-roll">${b?'Roll '+esc(b.roll):''}</span>
+       </div>
+     </div>`;
+   }
+   grid+=`</div>`;
+ }
+ grid+=`</div>`;
+
+ card.innerHTML=`
+   <div class="wa-top">
+     <div class="wa-brand">
+       VIDYA ACADEMY OF SCIENCE AND TECHNOLOGY
+       <div style="font-size:16px;font-weight:800;color:#344054;margin-top:5px">Department of Electrical and Electronics Engineering</div>
+       <div style="font-size:14px;font-weight:700;color:#667085;margin-top:3px">Daily Examination Seating Arrangement — Students</div>
+     </div>
+     <div class="wa-room-title">ROOM : ${esc(room.name)}</div>
+     <div class="wa-meta">DATE: ${esc(exam.date)}<br>TIME: ${esc(exam.time)}</div>
+   </div>
+   <div class="wa-pair-header">
+     <div class="wa-side wa-left">
+       <div class="wa-side-title">LEFT SIDE · ${esc(room.groupA||'—')} (${room.groupA?(state.groups[room.groupA]||[]).length:0} Students)</div>
+       <div class="wa-side-sub">Subject: <b>${esc(room.leftSubject||subjectForGroup(exam,room.groupA)||'—')}</b><br>Subject Code: <b>${esc(room.leftCode||subjectCodeForGroup(exam,room.groupA)||'Not specified in timetable')}</b></div>
+     </div>
+     <div class="wa-side wa-right">
+       <div class="wa-side-title">RIGHT SIDE · ${esc(room.groupB||'—')} (${room.groupB?(state.groups[room.groupB]||[]).length:0} Students)</div>
+       <div class="wa-side-sub">Subject: <b>${esc(room.rightSubject||subjectForGroup(exam,room.groupB)||'—')}</b><br>Subject Code: <b>${esc(room.rightCode||subjectCodeForGroup(exam,room.groupB)||'Not specified in timetable')}</b></div>
+     </div>
+   </div>
+   <div class="wa-board">B O A R D / F R O N T</div>
+   ${grid}
+   <div class="wa-footer">Each bench has two positions: LEFT and RIGHT. Seat numbers are highlighted in red for quick identification.</div>`;
+ return card;
+}
+
+function buildWhatsAppSummary(exam){
+ const card=document.createElement('div'); card.className='wa-summary';
+ const rows=state.arrangement.rooms.map(r=>{
+   const L=getExamClassInfo(exam,r.groupA), R=getExamClassInfo(exam,r.groupB);
+   return `<tr><td><b>${esc(r.name)}</b></td>
+    <td class="left"><b>${esc(r.groupA||'—')}</b><br>${esc(L.subject||'—')}<br><small>${L.code?'Subject Code: '+esc(L.code):'Subject Code: Not specified in timetable'}</small></td>
+    <td class="right"><b>${esc(r.groupB||'—')}</b><br>${esc(R.subject||'—')}<br><small>${R.code?'Subject Code: '+esc(R.code):'Subject Code: Not specified in timetable'}</small></td>
+    <td><b>${r.seats.length*2}</b></td></tr>`;
+ }).join('');
+ card.innerHTML=`<h1>VIDYA ACADEMY OF SCIENCE AND TECHNOLOGY</h1>
+ <h2>SERIES EXAMINATION · DAILY SEATING SUMMARY</h2>
+ <p style="text-align:center;font-weight:800">${esc(exam.date)} · ${esc(exam.time)}</p>
+ <p style="text-align:center;font-size:14px;color:#667085">Room-wise class, batch, subject and subject code are taken independently from the uploaded timetable.</p>
+ <table><thead><tr><th>ROOM</th><th>LEFT SIDE</th><th>RIGHT SIDE</th><th>PLACES</th></tr></thead><tbody>${rows}</tbody></table>
+ <p style="margin-top:18px;text-align:center;font-weight:700">5-page sharing set: this summary + one detailed seating image for each room.</p>`;
+ return card;
+}
+function buildPoster(){ return state.arrangement ? buildWhatsAppSummary(state.arrangement.exam) : null; }
+
+async function makePoster(){
+ if(!state.arrangement)return setStatus('generateStatus','Generate the seating arrangement first.','warn');
+ const exam=state.arrangement.exam;
+ const rooms=state.arrangement.rooms.filter(r=>r.groupA||r.groupB);
+ if(rooms.length!==4)return setStatus('generateStatus',`Expected 4 configured rooms, but found ${rooms.length}. Please check Room Configuration.`,'warn');
+ const cards=[buildWhatsAppSummary(exam),...rooms.map(r=>buildRoomWhatsAppCard(r,exam))];
+ const canvases=[],images=[];
+ for(const card of cards){
+   card.style.position='fixed'; card.style.left='-100000px'; card.style.top='0';
+   document.body.appendChild(card); await new Promise(requestAnimationFrame);
+   const canvas=await html2canvas(card,{scale:2,backgroundColor:'#ffffff',useCORS:true});
+   canvases.push(canvas); images.push(canvas.toDataURL('image/png')); card.remove();
+ }
+ state.lastPoster=images; state.lastPosterCanvases=canvases;
+ return {canvases,images,rooms,exam};
+}
+async function exportAllRooms(){
+ const result=await makePoster(); if(!result)return;
+ result.images.forEach((data,i)=>{
+   const a=document.createElement('a'); a.href=data;
+   a.download=i===0?`VAST_Seating_Summary_${result.exam.date}.png`:`VAST_Seating_${result.rooms[i-1]?.name||('Room-'+i)}_${result.exam.date}.png`;
+   a.click();
+ });
+ setStatus('generateStatus','Created 5 WhatsApp images: 1 summary + 4 room images.','ok');
+}
+async function downloadFivePagePDF(){
+ const result=await makePoster(); if(!result)return;
+ if(!window.jspdf?.jsPDF)return setStatus('generateStatus','PDF library did not load. Please check your internet connection and reload the page.','err');
+ const {jsPDF}=window.jspdf;
+ const pdf=new jsPDF({orientation:'landscape',unit:'pt',format:'a4',compress:true});
+ const pw=pdf.internal.pageSize.getWidth(),ph=pdf.internal.pageSize.getHeight();
+ result.canvases.forEach((canvas,i)=>{
+   if(i)pdf.addPage('a4','landscape');
+   const img=canvas.toDataURL('image/png');
+   const scale=Math.min(pw/canvas.width,ph/canvas.height);
+   const w=canvas.width*scale,h=canvas.height*scale;
+   pdf.addImage(img,'PNG',(pw-w)/2,(ph-h)/2,w,h,undefined,'FAST');
+ });
+ pdf.save(`VAST_Seating_5_Page_${result.exam.date}.pdf`);
+ setStatus('generateStatus','Created one 5-page PDF using the exact same 5 rendered pages as the WhatsApp images.','ok');
+}
+async function downloadAllPoster(){
+ const result=await makePoster(); if(!result)return;
+ result.images.forEach((data,i)=>{
+   const a=document.createElement('a'); a.href=data;
+   a.download=i===0?'VAST_Seating_Summary.png':`VAST_Seating_${result.rooms[i-1]?.name||('Room-'+i)}.png`;
+   a.click();
+ });
+}
+</script>
+</body>
+</html>
