@@ -17,61 +17,117 @@ function removeLastRoom(){
 }
 </script>
 <script>
-/* V23: resilient local-file PDF export with visible diagnostics and print fallback. */
+/* V24: reliable export handlers for local and hosted use. */
 (function(){
-  function pdfStatus(message, kind){
-    const el=document.getElementById('generateStatus') || document.getElementById('resultMeta');
-    if(el){ el.textContent=message; el.style.color = kind==='error' ? '#ffd5d2' : (kind==='ok' ? '#b8ffd5' : ''); }
-    console[kind==='error'?'error':'log']('[VAST PDF] '+message);
-  }
-  window.downloadFivePagePDF = async function(){
-    try{
-      if(!state || !state.arrangement){
-        pdfStatus('Please generate the seating arrangement before downloading the PDF.','error');
-        return;
-      }
-      if(typeof window.html2canvas !== 'function'){
-        pdfStatus('PDF export library did not load. Check your internet connection, then reload this HTML file. You can use Print → Save as PDF as a workaround.','error');
-        window.print();
-        return;
-      }
-      pdfStatus('Preparing PDF pages…','info');
-      const result=await makePoster();
-      if(!result || !Array.isArray(result.canvases) || !result.canvases.length){
-        pdfStatus('Could not create the summary/room images. Check that seating has been generated and try again.','error');
-        return;
-      }
-      if(!window.jspdf || typeof window.jspdf.jsPDF!=='function'){
-        pdfStatus('PDF library (jsPDF) did not load. Opening Print; choose “Save as PDF”.','error');
-        window.print();
-        return;
-      }
-      const JsPDF=window.jspdf.jsPDF;
-      const pdf=new JsPDF({orientation:'portrait',unit:'pt',format:'a4',compress:true});
-      const pageW=pdf.internal.pageSize.getWidth();
-      const pageH=pdf.internal.pageSize.getHeight();
-      const margin=18;
-      result.canvases.forEach((canvas,index)=>{
-        if(index) pdf.addPage('a4','portrait');
-        const data=canvas.toDataURL('image/jpeg',0.94);
-        const scale=Math.min((pageW-2*margin)/canvas.width,(pageH-2*margin)/canvas.height);
-        const w=canvas.width*scale, h=canvas.height*scale;
-        pdf.addImage(data,'JPEG',(pageW-w)/2,(pageH-h)/2,w,h,undefined,'FAST');
-      });
-      const rawDate=(result.exam && result.exam.date) || new Date().toISOString().slice(0,10);
-      const date=String(rawDate).replace(/[^a-zA-Z0-9_-]/g,'_');
-      const blob=pdf.output('blob');
-      const url=URL.createObjectURL(blob);
-      const link=document.createElement('a');
-      link.href=url; link.download='VAST_Seating_Summary_and_Rooms_'+date+'.pdf';
-      link.style.display='none'; document.body.appendChild(link); link.click(); link.remove();
-      setTimeout(()=>URL.revokeObjectURL(url),30000);
-      pdfStatus('PDF created: '+result.canvases.length+' page(s), including the summary and active rooms. Check your Downloads folder.','ok');
-    }catch(err){
-      console.error('[VAST PDF] Export failed',err);
-      pdfStatus('PDF export failed: '+(err && err.message ? err.message : String(err))+'. Try Print → Save as PDF, or open this file in Chrome/Edge with internet access.','error');
+  let busy = false;
+  function status(message, kind='info'){
+    let el=document.getElementById('exportStatus');
+    if(!el){
+      el=document.createElement('div'); el.id='exportStatus';
+      el.style.cssText='margin:10px 0;padding:10px 12px;border-radius:10px;font-size:13px;line-height:1.45;background:#eef2ff;color:#26356b;';
+      const actions=document.querySelector('#resultsSection .results-head .actions');
+      if(actions && actions.parentNode) actions.parentNode.insertBefore(el, actions.parentNode.children[1] || null);
+      else document.getElementById('resultsSection')?.prepend(el);
     }
-  };
+    el.textContent=message;
+    el.style.background=kind==='error'?'#ffebe9':kind==='ok'?'#eaf8f0':'#eef2ff';
+    el.style.color=kind==='error'?'#a62c26':kind==='ok'?'#126b3e':'#26356b';
+    el.setAttribute('role','status');
+  }
+  function currentArrangement(){
+    if(typeof state==='undefined' || !state.arrangement) throw new Error('Generate the seating arrangement first.');
+    const a=state.arrangement;
+    if(!a.exam || !Array.isArray(a.rooms)) throw new Error('The generated arrangement is incomplete. Generate it again, then export.');
+    const rooms=a.rooms.filter(r => (r.groupA && r.groupA!=='__NO_EXAM__') || (r.groupB && r.groupB!=='__NO_EXAM__'));
+    if(!rooms.length) throw new Error('No active rooms were found in the generated arrangement.');
+    return {exam:a.exam,rooms};
+  }
+  const nextFrame=()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+  async function makeExportCanvases(){
+    const {exam,rooms}=currentArrangement();
+    if(typeof window.html2canvas!=='function') throw new Error('The image-rendering library did not load. Connect to the internet, reload this HTML file, and try again.');
+    if(typeof buildWhatsAppSummary!=='function' || typeof buildRoomWhatsAppCard!=='function') throw new Error('The summary/room poster builder is unavailable. Please reload the HTML file.');
+    const cards=[buildWhatsAppSummary(exam), ...rooms.map(room=>buildRoomWhatsAppCard(room,exam))];
+    const canvases=[];
+    for(let i=0;i<cards.length;i++){
+      const card=cards[i];
+      if(!card || !card.style) throw new Error('Could not build export page '+(i+1)+'.');
+      card.style.position='absolute'; card.style.left='-12000px'; card.style.top='0'; card.style.zIndex='-1';
+      card.style.display='block'; card.style.visibility='visible';
+      document.body.appendChild(card);
+      try{
+        if(document.fonts && document.fonts.ready) await document.fonts.ready;
+        await nextFrame();
+        const canvas=await window.html2canvas(card,{scale:2,backgroundColor:'#ffffff',useCORS:true,allowTaint:false,logging:false,windowWidth:Math.max(document.documentElement.clientWidth,card.scrollWidth||0)});
+        if(!canvas || !canvas.width || !canvas.height) throw new Error('Page '+(i+1)+' rendered as an empty image.');
+        canvases.push(canvas);
+      } finally { card.remove(); }
+      status('Preparing export pages… '+canvases.length+' of '+cards.length+' rendered.');
+    }
+    return {canvases,exam,rooms};
+  }
+  function safeDate(exam){return String((exam&&exam.date)||new Date().toISOString().slice(0,10)).replace(/[^a-zA-Z0-9_-]/g,'_');}
+  function downloadBlob(blob,filename){
+    return new Promise((resolve,reject)=>{
+      try{
+        const url=URL.createObjectURL(blob); const a=document.createElement('a');
+        a.href=url; a.download=filename; a.style.display='none'; document.body.appendChild(a); a.click(); a.remove();
+        setTimeout(()=>{URL.revokeObjectURL(url);resolve();},900);
+      }catch(e){reject(e);}
+    });
+  }
+  async function downloadCanvasesAsImages(out, onlySummary=false){
+    const count=onlySummary?1:out.canvases.length;
+    const date=safeDate(out.exam);
+    // A short delay between clicks helps browsers accept multiple downloads from a user action.
+    for(let i=0;i<count;i++){
+      const canvas=out.canvases[i];
+      const blob=await new Promise((resolve,reject)=>canvas.toBlob(b=>b?resolve(b):reject(new Error('Could not encode image '+(i+1)+'.')),'image/png'));
+      const filename=i===0?'VAST_Seating_Summary_'+date+'.png':'VAST_Seating_Room_'+String(i).padStart(2,'0')+'_'+date+'.png';
+      await downloadBlob(blob,filename);
+      if(i<count-1) await new Promise(resolve=>setTimeout(resolve,350));
+    }
+  }
+  async function runBusy(label, action){
+    if(busy){status('An export is already running. Please wait for it to finish.');return;}
+    busy=true;
+    const buttons=[...document.querySelectorAll('#resultsSection .actions button')]; buttons.forEach(b=>b.disabled=true);
+    try{status(label);await action();}
+    catch(err){console.error('[VAST export]',err);status('Export failed: '+(err&&err.message?err.message:String(err)),'error');}
+    finally{busy=false;buttons.forEach(b=>b.disabled=false);}
+  }
+  window.exportAllRooms=function(){return runBusy('Creating summary and WhatsApp room images…',async()=>{
+    const out=await makeExportCanvases(); await downloadCanvasesAsImages(out,false);
+    status('Image export complete: '+out.canvases.length+' PNG file(s) prepared — one summary and '+out.rooms.length+' room image(s). If the browser asks, allow multiple downloads.','ok');
+  });};
+  window.downloadAllPoster=function(){return runBusy('Creating poster image…',async()=>{
+    const out=await makeExportCanvases(); await downloadCanvasesAsImages(out,true);
+    status('Summary poster downloaded.','ok');
+  });};
+  window.downloadFivePagePDF=function(){return runBusy('Creating landscape PDF from the summary and room pages…',async()=>{
+    const out=await makeExportCanvases();
+    if(!window.jspdf || typeof window.jspdf.jsPDF!=='function') throw new Error('The PDF library did not load. Check internet access and reload. Use the Print button and choose “Save as PDF” meanwhile.');
+    const JsPDF=window.jspdf.jsPDF; const pdf=new JsPDF({orientation:'landscape',unit:'pt',format:'a4',compress:true});
+    const pageW=pdf.internal.pageSize.getWidth(),pageH=pdf.internal.pageSize.getHeight(),margin=18;
+    for(let i=0;i<out.canvases.length;i++){
+      if(i) pdf.addPage('a4','landscape');
+      const canvas=out.canvases[i];
+      const data=canvas.toDataURL('image/jpeg',0.92);
+      const scale=Math.min((pageW-2*margin)/canvas.width,(pageH-2*margin)/canvas.height);
+      const w=canvas.width*scale,h=canvas.height*scale;
+      pdf.addImage(data,'JPEG',(pageW-w)/2,(pageH-h)/2,w,h,undefined,'FAST');
+    }
+    const blob=pdf.output('blob');
+    await downloadBlob(blob,'VAST_Seating_Summary_and_Rooms_'+safeDate(out.exam)+'.pdf');
+    status('Landscape PDF downloaded with '+out.canvases.length+' page(s): one summary and '+out.rooms.length+' room page(s). Check your Downloads folder.','ok');
+  });};
+  // Re-bind the visible buttons directly, so they keep working even if inline handlers are restricted.
+  const actionButtons=[...document.querySelectorAll('#resultsSection .results-head .actions button')];
+  if(actionButtons.length>=3){
+    actionButtons[0].onclick=e=>{e.preventDefault();window.exportAllRooms();};
+    actionButtons[1].onclick=e=>{e.preventDefault();window.downloadFivePagePDF();};
+    actionButtons[2].onclick=e=>{e.preventDefault();window.downloadAllPoster();};
+  }
 })();
 </script>
 </body></html>
